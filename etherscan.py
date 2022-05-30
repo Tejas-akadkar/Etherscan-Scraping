@@ -13,9 +13,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-
-# from selenium.webdriver.chrome.service import Service
-# from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 API_KEY = "05b802522dd0ce9f6cd24b443db4d88a"
 data_sitekey = '6Le1YycTAAAAAJXqwosyiATvJ6Gs2NLn8VEzTVlS'
@@ -63,14 +62,14 @@ def getToken(soup, tr):
             "Time": time.strftime('%d-%m-%Y %H:%M:%S'),
         }
         print(json.dumps(data, indent=4))
-        filename = f"{tr['Label']}-token.csv"
+        filename = f"./CSVs/{tr['Label']}-token.csv"
         if not os.path.exists(filename):
             with open(filename, 'w', newline='', encoding='utf8') as file:
                 csv.DictWriter(file, fieldnames=token_headers).writeheader()
         with open(filename, 'a', newline='', encoding='utf8') as file:
             csv.DictWriter(file, fieldnames=token_headers).writerow(data)
-        with open('scraped_tokens.txt','a') as sfile:
-            sfile.write(tkn+"\n")
+        with open('scraped_tokens.txt', 'a') as sfile:
+            sfile.write(tkn + "\n")
         scraped['tokens'].append(tkn)
     except:
         traceback.print_exc()
@@ -93,7 +92,7 @@ def getAccount(soup, tr):
             "Time": time.strftime('%d-%m-%Y %H:%M:%S'),
         }
         print(json.dumps(data, indent=4))
-        filename = f"{tr['Label']}-accounts.csv"
+        filename = f"./CSVs/{tr['Label']}-accounts.csv"
         if not os.path.exists(filename):
             with open(filename, 'w', newline='', encoding='utf8') as file:
                 csv.DictWriter(file, fieldnames=account_headers).writeheader()
@@ -225,6 +224,8 @@ def main():
                 scraped[x] = afile.read().splitlines()
         else:
             scraped[x] = []
+    if not os.path.isdir('CSVs'):
+        os.mkdir('CSVs')
     driver.get(f'https://{es}/labelcloud')
     btnclass = 'col-md-4 col-lg-3 mb-3 secondary-container'
     getElement(driver, f'//div[@class="{btnclass}"]')
@@ -247,21 +248,29 @@ def getChromeDriver():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument('start-maximized')
     chrome_options.add_argument(f'user-agent={UserAgent().random}')
-    # chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false")
     if debug:
         chrome_options.debugger_address = "127.0.0.1:9222"
+    else:
+        chrome_options.add_argument('--user-data-dir=C:/Selenium/ChromeProfile')
+        # chrome_options.add_argument("--headless")
     driver = webdriver.Chrome(
-        # service=Service(ChromeDriverManager().install()),
+        service=Service(ChromeDriverManager().install()),
         options=chrome_options)
     return driver
 
 
 def reCaptchaSolver(driver):
     driver.get(page_url)
+    time.sleep(1)
+    if "login" not in driver.current_url:
+        print(f"Already logged in as {driver.find_element(By.TAG_NAME,'h4').text}")
+        return
     driver.find_element(By.ID, "ContentPlaceHolder1_txtUserName").send_keys("tapendra")
     driver.find_element(By.ID, "ContentPlaceHolder1_txtPassword").send_keys("12345678")
+    driver.find_element(By.XPATH, '//label[@for="ContentPlaceHolder1_chkRemember"]').click()
     u1 = f"https://2captcha.com/in.php?key={API_KEY}&method=userrecaptcha&googlekey" \
          f"={data_sitekey}&pageurl={page_url}&json=1&invisible=1"
     r1 = requests.get(u1)
