@@ -254,7 +254,7 @@ def getChromeDriver():
     if debug:
         chrome_options.debugger_address = "127.0.0.1:9222"
     else:
-        chrome_options.add_argument('--user-data-dir=C:/Selenium/ChromeProfile')
+        chrome_options.add_argument('--user-data-dir=C:/Selenium1/ChromeProfile')
         # chrome_options.add_argument("--headless")
     driver = webdriver.Chrome(
         service=Service(ChromeDriverManager().install()),
