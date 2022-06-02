@@ -23,7 +23,7 @@ page_url = f'https://{es}/login'
 timeout = 10
 debug = False
 # blocked = ["liqui.io", "remittance+"]
-account_headers = ['Name', 'Address', 'Name Tag', 'Name Tag URL', 'AddressLink', 'AddressType', 'LabelIDs',
+account_headers = ['Address', 'Name Tag', 'Name Tag URL', 'AddressLink', 'AddressType', 'LabelIDs',
                    'Subcategory', 'Time']
 token_headers = ['Address', 'AddressLink', 'Name', 'Abbreviation', 'Website', 'SocialLinks', 'Image', 'LabelIDs',
                  'OverviewText', 'MarketCap', 'Holder', 'AdditionalInfo', 'Overview', 'AddressType', 'Time']
@@ -278,7 +278,8 @@ def getChromeDriver():
 
 def reCaptchaSolver(driver):
     driver.get(page_url)
-    while "busy" in driver.current_url:
+    time.sleep(2)
+    while "busy" in driver.current_url or "unusual traffic" in driver.page_source.lower():
         time.sleep(3)
         driver.get(page_url)
     time.sleep(1)
@@ -377,10 +378,10 @@ def checkToken():
         "Subcategory": 'Subcategory',
         "Label": 'Label',
         "Market Cap": 'MarketCap',
-
     }
     getToken(soup, tk_data)
 
 
 if __name__ == '__main__':
     main()
+    # checkAccount()
