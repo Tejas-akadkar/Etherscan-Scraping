@@ -77,7 +77,7 @@ def getToken(soup, tr):
         scraped['tokens'].append(tkn)
     except:
         traceback.print_exc()
-        with open('Error-Token.txt','a') as efile:
+        with open('Error-Token.txt', 'a') as efile:
             efile.write(f"{tkn}\n")
 
 
@@ -94,7 +94,8 @@ def getAccount(soup, tr):
             "Address": addr,
             "AddressLink": f"https://{es}/address/{addr}",
             "AddressType": soup.find('h1').text.strip().split()[0],
-            "Name Tag URL": tag.parent.find('a')['href'] if tag is not None and tag.parent is not None and tag.parent.find('a') is not None else "",
+            "Name Tag URL": tag.parent.find('a')[
+                'href'] if tag is not None and tag.parent is not None and tag.parent.find('a') is not None else "",
             "LabelIDs": [a.text for a in soup.find_all('div', {'class': 'mt-1'})[1].find_all('a') if
                          soup.find_all('div', {'class': 'mt-1'}) is not None and len(
                              soup.find_all('div', {'class': 'mt-1'})) > 1],
@@ -110,10 +111,10 @@ def getAccount(soup, tr):
             csv.DictWriter(file, fieldnames=account_headers).writerow(data)
         with open('scraped_accounts.txt', 'a') as sfile:
             sfile.write(addr + "\n")
-        scraped['tokens'].append(addr)
+        scraped['accounts'].append(addr)
     except:
         traceback.print_exc()
-        with open('Error-Account.txt','a') as efile:
+        with open('Error-Account.txt', 'a') as efile:
             efile.write(f"{addr}\n")
         # print(soup)
 
