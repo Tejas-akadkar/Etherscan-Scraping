@@ -90,11 +90,10 @@ def getAccount(soup, tr):
             pass
         tag = soup.find("span", {"title": 'Public Name Tag (viewable by anyone)'})
         data = {
-            # "Name": tr['Name Tag'],
+            "Name Tag": tag.text if tag is not None else tr['Name Tag'],
             "Address": addr,
             "AddressLink": f"https://{es}/address/{addr}",
             "AddressType": soup.find('h1').text.strip().split()[0],
-            "Name Tag": tag.text if tag is not None else "",
             "Name Tag URL": tag.parent.find('a')['href'] if tag is not None and tag.parent is not None and tag.parent.find('a') is not None else "",
             "LabelIDs": [a.text for a in soup.find_all('div', {'class': 'mt-1'})[1].find_all('a') if
                          soup.find_all('div', {'class': 'mt-1'}) is not None and len(
@@ -221,13 +220,14 @@ def scrapeLabel(driver, label, at):
     for thread in threads:
         thread.join()
     with open('scraped_labels.txt', 'a') as sfile:
-        sfile.write(label + "\n")
+        sfile.write(f"{label}-{at}\n")
     scraped['labels'].append(label)
 
 
 def main():
     global scraped
     logo()
+    time.sleep(0.5)
     driver = getChromeDriver()
     if not debug:
         reCaptchaSolver(driver)
@@ -250,11 +250,11 @@ def main():
     print(f"Found {len(divs)} labels.")
     for div in divs:
         label = div.find('button')['data-url']
-        if label not in scraped['labels']:
-            for at in [a['href'].split('/')[1] for a in div.find_all('a')]:
+        for at in [a['href'].split('/')[1] for a in div.find_all('a')]:
+            if f"{label}-{at}" not in scraped['labels']:
                 scrapeLabel(driver, label, at)
-        else:
-            print(f"{label} already scraped!")
+            else:
+                print(f"{label} ({at}) already scraped!")
 
 
 def getChromeDriver():
