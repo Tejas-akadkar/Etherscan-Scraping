@@ -23,7 +23,8 @@ page_url = f'https://{es}/login'
 timeout = 10
 debug = False
 # blocked = ["liqui.io", "remittance+"]
-account_headers = ['Name', 'Address', 'AddressLink', 'AddressType', 'LabelIDs', 'Subcategory', 'Time']
+account_headers = ['Name', 'Address', 'Name Tag', 'Name Tag URL', 'AddressLink', 'AddressType', 'LabelIDs',
+                   'Subcategory', 'Time']
 token_headers = ['Address', 'AddressLink', 'Name', 'Abbreviation', 'Website', 'SocialLinks', 'Image', 'LabelIDs',
                  'OverviewText', 'MarketCap', 'Holder', 'AdditionalInfo', 'Overview', 'AddressType', 'Time']
 semaphore = threading.Semaphore(10)
@@ -33,12 +34,12 @@ scraped = {}
 
 
 def getToken(soup, tr):
+    tkn = tr['Contract Address']
     try:
         try:
             tr['Description'] = json.loads(soup.find('script', {"type": "application/ld+json"}).text)['description']
         except:
             tr['Description'] = ""
-        tkn = tr['Contract Address']
         hldr = 'ContentPlaceHolder1_tr_tokenHolders'
         try:
             print(soup.find('div', {'class': 'table-responsive mb-2'}).text)
@@ -50,9 +51,12 @@ def getToken(soup, tr):
             "Name": soup.find('div', {'class': "media-body"}).find('span').text.strip(),
             "Abbreviation": getTag(soup, 'div', {'class': 'col-md-8 font-weight-medium'}).split()[-1],
             "Website": soup.find('div', {"id": 'ContentPlaceHolder1_tr_officialsite_1'}).find('a')['href'],
-            "SocialLinks": [li.find('a')['href'] for li in soup.find_all('li', {"class": "list-inline-item mr-3"})],
+            "SocialLinks": [{li.find('a')['data-original-title'].split(':')[0]: li.find('a')['href']} for li in
+                            soup.find_all('li', {"class": "list-inline-item mr-3"})],
             "Image": f"https://{es}/{soup.find('img', {'class': 'u-sm-avatar mr-2'})['src']}",
-            "LabelIDs": [a.text for a in soup.find_all('div', {'class': 'mt-1'})[1].find_all('a')],
+            "LabelIDs": [a.text for a in soup.find_all('div', {'class': 'mt-1'})[1].find_all('a') if
+                         soup.find_all('div', {'class': 'mt-1'}) is not None and len(
+                             soup.find_all('div', {'class': 'mt-1'})) > 1],
             "OverviewText": soup.find('h2', {"class": "card-header-title"}).find('span').text.strip()[1:-1],
             "MarketCap": tr['Market Cap'],
             "Holder": soup.find('div', {'id': hldr}).find('div', {'class': 'mr-3'}).text.split('(')[0].strip(),
@@ -73,21 +77,28 @@ def getToken(soup, tr):
         scraped['tokens'].append(tkn)
     except:
         traceback.print_exc()
+        with open('Error-Token.txt','a') as efile:
+            efile.write(f"{tkn}\n")
 
 
 def getAccount(soup, tr):
+    addr = tr['Address']
     try:
         try:
             print(soup.find('div', {'class': 'table-responsive mb-2'}).text.replace('OVERVIEW', ''))
         except:
             pass
-        addr = tr['Address']
+        tag = soup.find("span", {"title": 'Public Name Tag (viewable by anyone)'})
         data = {
-            "Name": tr['Name Tag'],
+            # "Name": tr['Name Tag'],
             "Address": addr,
             "AddressLink": f"https://{es}/address/{addr}",
-            "AddressType": "Contract" if soup.find('i', {"data-original-title": "Contract"}) is not None else "Wallet",
-            "LabelIDs": [a.text for a in soup.find_all('div', {'class': 'mt-1'})[1].find_all('a')],
+            "AddressType": soup.find('h1').text.strip().split()[0],
+            "Name Tag": tag.text if tag is not None else "",
+            "Name Tag URL": tag.parent.find('a')['href'] if tag is not None and tag.parent is not None and tag.parent.find('a') is not None else "",
+            "LabelIDs": [a.text for a in soup.find_all('div', {'class': 'mt-1'})[1].find_all('a') if
+                         soup.find_all('div', {'class': 'mt-1'}) is not None and len(
+                             soup.find_all('div', {'class': 'mt-1'})) > 1],
             "Subcategory": tr['Subcategory'],
             "Time": time.strftime('%d-%m-%Y %H:%M:%S'),
         }
@@ -103,6 +114,8 @@ def getAccount(soup, tr):
         scraped['tokens'].append(addr)
     except:
         traceback.print_exc()
+        with open('Error-Account.txt','a') as efile:
+            efile.write(f"{addr}\n")
         # print(soup)
 
 
@@ -264,9 +277,12 @@ def getChromeDriver():
 
 def reCaptchaSolver(driver):
     driver.get(page_url)
+    while "busy" in driver.current_url:
+        time.sleep(3)
+        driver.get(page_url)
     time.sleep(1)
     if "login" not in driver.current_url:
-        print(f"Already logged in as {driver.find_element(By.TAG_NAME,'h4').text}")
+        print(f"Already logged in as {driver.find_element(By.TAG_NAME, 'h4').text}")
         return
     driver.find_element(By.ID, "ContentPlaceHolder1_txtUserName").send_keys("tapendra")
     driver.find_element(By.ID, "ContentPlaceHolder1_txtPassword").send_keys("12345678")
@@ -335,6 +351,34 @@ def getTag(soup, tag, attrib):
 
 def getElement(driver, xpath):
     return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.XPATH, xpath)))
+
+
+def checkAccount():
+    s = requests.Session()
+    s.headers = {'user-agent': 'Mozilla/5.0'}
+    adrs = '0xe66b31678d6c16e9ebf358268a790b763c133750'
+    soup = BeautifulSoup(s.get(f'https://{es}/address/{adrs}').content, 'lxml')
+    ac_data = {
+        "Address": adrs,
+        "Subcategory": 'Subcategory',
+        "Label": 'label'
+    }
+    getAccount(soup, ac_data)
+
+
+def checkToken():
+    s = requests.Session()
+    s.headers = {'user-agent': 'Mozilla/5.0'}
+    adrs = '0x87d73E916D7057945c9BcD8cdd94e42A6F47f776'
+    soup = BeautifulSoup(s.get(f'https://{es}/token/{adrs}').content, 'lxml')
+    tk_data = {
+        'Contract Address': adrs,
+        "Subcategory": 'Subcategory',
+        "Label": 'Label',
+        "Market Cap": 'MarketCap',
+
+    }
+    getToken(soup, tk_data)
 
 
 if __name__ == '__main__':
